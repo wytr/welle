@@ -6,7 +6,7 @@ import cv2 as cv
 import json
 import numpy as np
 import threading
-
+import platform
 
 #from gpiozero import CPUTemperature
 #cpu = CPUTemperature()
@@ -46,7 +46,8 @@ class ObjectTracking:
     def __init__(self, _useNotification=False,_mode="demo",_file="",_framewidth=1280,_frameheight=720,_useFullscreen=False):
         if _useNotification:
             self.Notifier = CVNotifier()
-            print("using notification system")
+            self.Notifier.newMessage("using notification system","Info")
+            self.Notifier.newMessage(platform.system(),"Warning")
         self.useFullscreen = _useFullscreen
         self.framewidth=_framewidth
         self.frameheight=_frameheight
@@ -65,7 +66,7 @@ class ObjectTracking:
             self.cap.set(cv.CAP_PROP_FRAME_WIDTH, _framewidth)
             self.cap.set(cv.CAP_PROP_FRAME_HEIGHT, _frameheight)
             self.cap.set(cv.CAP_PROP_FPS, 30)
-    
+
     def load_config(self):
         self.Notifier.newMessage("loading config.","Info")
         f = open('config.json')

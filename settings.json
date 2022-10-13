@@ -1,0 +1,11 @@
+{   
+    "positions":
+    [
+        {
+        "roi_pos_x": 100,
+        "roi_pos_y": 400,
+        "roi_height": 60,
+        "roi_width": 900
+        }   
+    ]
+}

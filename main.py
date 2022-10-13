@@ -9,6 +9,10 @@ import threading
 import platform
 
 if platform.system() == "Linux" and platform.machine() == "armv7l":
+    import RPi.GPIO as GPIO
+    GPIO.setmode(GPIO.BCM)
+    GPIO.setup(17, GPIO.OUT)
+    GPIO.output(17, False)
     from gpiozero import CPUTemperature
     cpu = CPUTemperature()
 
@@ -215,7 +219,7 @@ class ObjectTracking:
                 print('no video')
                 self.cap.set(cv.CAP_PROP_POS_FRAMES, 1400)
                 continue
-            k = cv.waitKey(20)
+            k = cv.waitKey(50)
             if k==27:    # Esc key to stop
                 break
             elif k==119:  # up
@@ -269,7 +273,7 @@ class CVMessage:
 
 class CVNotifier:
 
-    textSize = 1
+    textSize = 2
     font = cv.FONT_HERSHEY_PLAIN
     position_x = 2
     position_y = 0
@@ -303,7 +307,7 @@ class CVNotifier:
 
         for message in self.messageInstances:
             if message != "None":
-                cv.putText(screen,message.content,(self.position_x, self.position_y+20*i),self.font,self.textSize,message.color,self.textSize,self.cvLine)
+                cv.putText(screen,message.content,(self.position_x, self.position_y+self.textSize*20*i),self.font,self.textSize,message.color,self.textSize,self.cvLine)
                 i+=1
 
 class Tracker:
@@ -332,6 +336,8 @@ class Tracker:
             self.lastTime = now
             error = False
         else:
+            if platform.system() == "Linux" and platform.machine() == "armv7l":
+                GPIO.output(17, True)
             string = f"ERROR FROM ID{self.id}"
             Tracking.Notifier.newMessage(string,"Error")
             

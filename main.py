@@ -8,6 +8,7 @@ import numpy as np
 import threading
 import platform
 
+
 #from gpiozero import CPUTemperature
 #cpu = CPUTemperature()
 
@@ -47,7 +48,9 @@ class ObjectTracking:
         if _useNotification:
             self.Notifier = CVNotifier()
             self.Notifier.newMessage("using notification system","Info")
-            self.Notifier.newMessage(platform.system(),"Warning")
+            self.Notifier.newMessage(platform.system() + " " + platform.machine(),"Warning")
+
+
         self.useFullscreen = _useFullscreen
         self.framewidth=_framewidth
         self.frameheight=_frameheight

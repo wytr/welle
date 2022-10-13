@@ -8,9 +8,9 @@ import numpy as np
 import threading
 import platform
 
-
-#from gpiozero import CPUTemperature
-#cpu = CPUTemperature()
+if platform.system() == "Linux" and platform.machine() == "armv7l":
+    from gpiozero import CPUTemperature
+    cpu = CPUTemperature()
 
 measurementInterval = 1
 error = False
@@ -49,7 +49,6 @@ class ObjectTracking:
             self.Notifier = CVNotifier()
             self.Notifier.newMessage("using notification system","Info")
             self.Notifier.newMessage(platform.system() + " " + platform.machine(),"Warning")
-
 
         self.useFullscreen = _useFullscreen
         self.framewidth=_framewidth
@@ -200,8 +199,8 @@ class ObjectTracking:
                         cv.drawMarker(frame1, get_center_point(contour),(255, 0, 255),cv.MARKER_DIAMOND,35, thickness=2)
                     except ZeroDivisionError:
                         print("zeroDivision")
-                        
-                #cv.putText(preview,"CPU:"+str(int(cpu.temperature))+"Celsius",(1000,50),cv.FONT_HERSHEY_PLAIN,2,(0,0,255),2,cv.LINE_AA)
+                if platform.system() == "Linux" and platform.machine() == "armv7l":        
+                    cv.putText(preview,"CPU:"+str(int(cpu.temperature))+"Celsius",(1000,50),cv.FONT_HERSHEY_PLAIN,2,(0,0,255),2,cv.LINE_AA)
                 #cv.putText(frame1,str(len(self.trackers)),(10,15),cv.FONT_HERSHEY_COMPLEX_SMALL,1,(0,0,255),1,cv.LINE_AA)
                 if self.useFullscreen == True:
                     cv.namedWindow("preview", cv.WINDOW_NORMAL)

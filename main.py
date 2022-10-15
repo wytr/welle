@@ -18,9 +18,9 @@ if platform.system() == "Linux" and platform.machine() == "armv7l":
 
 measurementInterval = 1
 error = False
-kernel = np.ones((9,9),np.uint8)
-
-crop_size = 15
+kernel_d = np.ones((7,21),np.uint8)
+kernel_e = np.ones((15,7),np.uint8)
+crop_size = 5
 step = 1
 counter = 0
 offset = 15
@@ -29,7 +29,7 @@ def get_center_point(contour):
     M = cv.moments(contour)
     cX = int(M["m10"] / M["m00"])
     cY = int(M["m01"] / M["m00"])
-    return [cX, cY+offset]
+    return [cX, cY+crop_size]
 
 class ObjectTracking:
     useFullscreen = None
@@ -48,7 +48,7 @@ class ObjectTracking:
     roi_height = 100
     roi_width = 800
 
-    def __init__(self, _useNotification=False,_mode="demo",_file="",_framewidth=1280,_frameheight=720,_useFullscreen=False):
+    def __init__(self, _useNotification=False,_mode="demo",_file="",_framewidth=640,_frameheight=480,_useFullscreen=False):
         if _useNotification:
             self.Notifier = CVNotifier()
             self.Notifier.newMessage("using notification system","Info")
@@ -150,22 +150,23 @@ class ObjectTracking:
                 now = time.time()
                 preview = frame1
                 self.Notifier.update(preview)
-                preview = cv.rectangle(preview,(self.roi_pos_x-2,self.roi_pos_y-2),(self.roi_pos_x+self.roi_width+2,self.roi_pos_y+self.roi_height+2),(0,0,255),2)
+                preview = cv.rectangle(preview,(self.roi_pos_x-2,self.roi_pos_y-2),(self.roi_pos_x+self.roi_width+2,self.roi_pos_y+self.roi_height+2),(0,0,255),1)
                 frame1 = frame1[self.roi_pos_y:self.roi_pos_y+self.roi_height, self.roi_pos_x:self.roi_pos_x+self.roi_width]
                 gray = cv.cvtColor(frame1, cv.COLOR_BGR2GRAY)
-                blur = cv.GaussianBlur(gray, (17, 17), 0)
+                blur = cv.GaussianBlur(gray, (15, 15), 0)
 
-                thresh = cv.adaptiveThreshold(blur,255,cv.ADAPTIVE_THRESH_MEAN_C,cv.THRESH_BINARY,91,8)
-
-                crop = thresh[crop_size:self.roi_height-crop_size, 0:1000]
-                crop = cv.dilate(crop, kernel, iterations = 2)
+                thresh = cv.adaptiveThreshold(blur,255,cv.ADAPTIVE_THRESH_MEAN_C,cv.THRESH_BINARY,101,20)
+                dilated = cv.dilate(thresh, kernel_d, iterations = 1)
+                eroded = cv.erode(dilated, kernel_e, iterations = 1)
+                crop = eroded[crop_size:self.roi_height-crop_size, 0:1000]
+                
                 contours, _ = cv.findContours(crop, cv.RETR_TREE, cv.CHAIN_APPROX_SIMPLE)
                 detected_contours = []
                 
                 for contour in contours:
                     x,y,w,h = cv.boundingRect(contour)
                     aspect_ratio = float(w)/h
-                    if cv.contourArea(contour) > 1000 and aspect_ratio < 15 and aspect_ratio > 5:
+                    if cv.contourArea(contour) > 200 and cv.contourArea(contour) < 2000 and aspect_ratio < 8 and aspect_ratio > 4:
                         detected_contours.append(contour)
 
                 midpoints = []
@@ -198,14 +199,14 @@ class ObjectTracking:
                 activeTrackers = self.getTrackers()
                 if len(activeTrackers) > 0:
                     for tracker in activeTrackers:
-                        cv.drawMarker(frame1, (tracker.currentPos[0],tracker.currentPos[1]),(0, 0, 0),cv.MARKER_CROSS,20, thickness=2)
-                        cv.drawMarker(frame1, (tracker.currentPos[0],tracker.currentPos[1]),(255, 255, 255),cv.MARKER_CROSS,20)
+                        cv.drawMarker(frame1, (tracker.currentPos[0],tracker.currentPos[1]),(0, 0, 0),cv.MARKER_CROSS,10, thickness=2)
+                        cv.drawMarker(frame1, (tracker.currentPos[0],tracker.currentPos[1]),(255, 255, 255),cv.MARKER_CROSS,10)
 
                 for contour in detected_contours:
                     try:
                         (x, y, w, h) = cv.boundingRect(contour)
                         #cv.rectangle(frame1, (x, y), (x+w, y+h+offset), (0, 255, 0), 2)
-                        cv.drawMarker(frame1, get_center_point(contour),(255, 0, 255),cv.MARKER_DIAMOND,35, thickness=2)
+                        cv.drawMarker(frame1, get_center_point(contour),(255, 0, 255),cv.MARKER_DIAMOND,20, thickness=1)
                     except ZeroDivisionError:
                         print("zeroDivision")
                 if platform.system() == "Linux" and platform.machine() == "armv7l":        
@@ -214,11 +215,14 @@ class ObjectTracking:
                 if self.useFullscreen == True:
                     cv.namedWindow("preview", cv.WINDOW_NORMAL)
                     cv.setWindowProperty("preview", cv.WND_PROP_FULLSCREEN, cv.WINDOW_FULLSCREEN)
-                #cv.imshow("blur", blur)
+                cv.imshow("blur", blur)
                 cv.imshow("preview", preview)
-                #cv.imshow("Threshold", thresh)
-                #cv.imshow("crop", crop)
-                #cv.imshow("Frame", frame1)
+                cv.imshow("Threshold", thresh)
+                cv.imshow("crop", crop)
+                cv.imshow("Frame", frame1)
+                cv.imshow("dilated", dilated)
+                cv.imshow("eroded", eroded)
+                
 
             else:
                 print('no video')
@@ -248,7 +252,7 @@ class ObjectTracking:
                     self.Notifier.newMessage(f"X:{self.roi_pos_x}","Warning")
                 continue
             elif k==45:  # roi_height
-                if self.roi_height > 5:
+                if self.roi_height > 2*crop_size+1:
                     self.roi_height -= 1
                     self.Notifier.newMessage(f"HEIGHT:{self.roi_height}","Warning")
                 continue
@@ -262,7 +266,7 @@ class ObjectTracking:
                     self.roi_width -=1
                     self.Notifier.newMessage(f"WIDTH:{self.roi_width}","Warning")
                 continue
-            elif k==44:  # roi_height
+            elif k==44:  #  roi_width
                 if self.roi_width < self.framewidth:
                     self.roi_width +=1
                     self.Notifier.newMessage(f"WIDTH:{self.roi_width}","Warning")
@@ -292,7 +296,7 @@ class CVNotifier:
     font = cv.FONT_HERSHEY_PLAIN
     position_x = 2
     position_y = 0
-    maxMessages = 20
+    maxMessages = 10
     messageInstances = []
     cvLine = cv.LINE_AA
 
@@ -385,6 +389,6 @@ class Tracker:
 
 if __name__ == "__main__":
 
-    Tracking = ObjectTracking(_useNotification=True,_mode="demo",_file="welle.mp4",_useFullscreen=True)
+    Tracking = ObjectTracking(_useNotification=True,_mode="demo",_file="v4l2_example_crop.mp4",_useFullscreen=False)
     Tracking.loop()
 

@@ -52,6 +52,11 @@ class ObjectTracking:
         if _useNotification:
             self.Notifier = CVNotifier()
             self.Notifier.newMessage("using notification system","Info")
+            self.Notifier.newMessage("WASD to move the ROI","Instruction")
+            self.Notifier.newMessage("+ and - to change ROI height","Instruction")
+            self.Notifier.newMessage(", and . to change ROI width","Instruction")
+            self.Notifier.newMessage("X to save configuration","Instruction")
+            
             self.Notifier.newMessage(platform.system() + " " + platform.machine(),"Warning")
 
         self.useFullscreen = _useFullscreen
@@ -96,15 +101,15 @@ class ObjectTracking:
         with open("config.json", "w") as jsonFile:
             json.dump(data, jsonFile, indent=4)
         string = f"config saved:"
-        self.Notifier.newMessage(string,"Warning")
+        self.Notifier.newMessage(string,"Config")
         string = f"roi_pos_x: {self.roi_pos_x}"
-        self.Notifier.newMessage(string,"Warning")
+        self.Notifier.newMessage(string,"Config")
         string = f"roi_pos_y: {self.roi_pos_y}"
-        self.Notifier.newMessage(string,"Warning")
+        self.Notifier.newMessage(string,"Config")
         string = f"roi_height: {self.roi_height}"
-        self.Notifier.newMessage(string,"Warning")
+        self.Notifier.newMessage(string,"Config")
         string = f"roi_width: {self.roi_width}"
-        self.Notifier.newMessage(string,"Warning")
+        self.Notifier.newMessage(string,"Config")
 
     def update(self, midpoints):
 
@@ -248,9 +253,19 @@ class ObjectTracking:
                     self.Notifier.newMessage(f"HEIGHT:{self.roi_height}","Warning")
                 continue
             elif k==43:  # roi_height
-                if self.roi_height < 100:
-                    self.roi_height +=1
+                if self.roi_height < self.frameheight:
+                    self.roi_height += 1
                     self.Notifier.newMessage(f"HEIGHT:{self.roi_height}","Warning")
+                continue
+            elif k==46:  # roi_width
+                if self.roi_width > 100:
+                    self.roi_width -=1
+                    self.Notifier.newMessage(f"WIDTH:{self.roi_width}","Warning")
+                continue
+            elif k==44:  # roi_height
+                if self.roi_width < self.framewidth:
+                    self.roi_width +=1
+                    self.Notifier.newMessage(f"WIDTH:{self.roi_width}","Warning")
                 continue
             elif k==120:  # save roi configuration to config.json
                 self.save_config()
@@ -264,7 +279,7 @@ class CVMessage:
 
     messageType = None
     content = "test"
-    colors = {"Error": (0,0,255),"Warning": (0,255,255),"Info": (0,255,0)}
+    colors = {"Error": (0,0,255),"Warning": (0,255,255),"Info": (0,255,0),"Instruction": (255,0,255),"Config":(255,0,0)}
     color = None
     def __init__(self,_content,_type,):
         self.content = _content
@@ -273,17 +288,18 @@ class CVMessage:
 
 class CVNotifier:
 
-    textSize = 2
+    textSize = 1
     font = cv.FONT_HERSHEY_PLAIN
     position_x = 2
     position_y = 0
-    maxMessages = 10
+    maxMessages = 20
     messageInstances = []
     cvLine = cv.LINE_AA
 
     def __init__(self):
-        for i in range(self.maxMessages):
-            self.attachMessage(CVMessage(" ", "Info"))
+        pass
+        #for i in range(self.maxMessages):
+        #    self.attachMessage(CVMessage(" ", "Info"))
     def setPosition(self,x,y):
         self.position_x = x
         self.position_y = y

@@ -2,6 +2,7 @@ from threading import Thread
 import cv2
 import datetime
 import argparse
+
 class FPS:
 	def __init__(self):
 		# store the start time, end time, and total number of frames
@@ -63,14 +64,16 @@ ap.add_argument("-d", "--display", type=int, default=-1,
 	help="Whether or not frames should be displayed")
 args = vars(ap.parse_args())
 
-print("[INFO] sampling frames from webcam...")
-stream = cv2.VideoCapture(0)
+# created a *threaded* video stream, allow the camera sensor to warmup,
+# and start the FPS counter
+print("[INFO] sampling THREADED frames from webcam...")
+vs = WebcamVideoStream(src=0).start()
 fps = FPS().start()
-# loop over some frames
+# loop over some frames...this time using the threaded stream
 while fps._numFrames < args["num_frames"]:
-	# grab the frame from the stream and resize it to have a maximum
-	# width of 400 pixels
-	(grabbed, frame) = stream.read()
+	# grab the frame from the threaded video stream and resize it
+	# to have a maximum width of 400 pixels
+	frame = vs.read()
 	# check to see if the frame should be displayed to our screen
 	if args["display"] > 0:
 		cv2.imshow("Frame", frame)
@@ -82,5 +85,5 @@ fps.stop()
 print("[INFO] elasped time: {:.2f}".format(fps.elapsed()))
 print("[INFO] approx. FPS: {:.2f}".format(fps.fps()))
 # do a bit of cleanup
-stream.release()
 cv2.destroyAllWindows()
+vs.stop()

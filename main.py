@@ -5,7 +5,7 @@ import time
 import cv2 as cv
 import json
 import numpy as np
-import threading
+from threading import Thread
 import platform
 
 if platform.system() == "Linux" and platform.machine() == "armv7l":
@@ -22,7 +22,6 @@ kernel_d = np.ones((7,21),np.uint8)
 kernel_e = np.ones((15,7),np.uint8)
 crop_size = 5
 step = 1
-counter = 0
 offset = 15
 
 def get_center_point(contour):
@@ -31,9 +30,32 @@ def get_center_point(contour):
     cY = int(M["m01"] / M["m00"])
     return [cX, cY+crop_size]
 
+class StreamThread:
+
+	def __init__(self, src=0):
+		self.stream = cv.VideoCapture(src)
+		(self.grabbed, self.frame) = self.stream.read()
+		self.stopped = False
+
+	def start(self):
+		Thread(target=self.update, args=()).start()
+		return self
+
+	def update(self):
+		while True:
+			if self.stopped:
+				return
+			(self.grabbed, self.frame) = self.stream.read()
+
+	def read(self):
+		return self.frame
+
+	def stop(self):
+		self.stopped = True
+
 class ObjectTracking:
     useFullscreen = None
-    cap = None
+    stream = None
     Notifier = None
     lastTime = None
     elapsedseconds = 0
@@ -56,7 +78,6 @@ class ObjectTracking:
             self.Notifier.newMessage("+ and - to change ROI height","Instruction")
             self.Notifier.newMessage(", and . to change ROI width","Instruction")
             self.Notifier.newMessage("X to save configuration","Instruction")
-            
             self.Notifier.newMessage(platform.system() + " " + platform.machine(),"Warning")
 
         self.useFullscreen = _useFullscreen
@@ -73,10 +94,7 @@ class ObjectTracking:
             self.cap = cv.VideoCapture(_file)
             self.cap.set(cv.CAP_PROP_POS_FRAMES, 1400)
         else:
-            self.cap = cv.VideoCapture(0)
-            self.cap.set(cv.CAP_PROP_FRAME_WIDTH, _framewidth)
-            self.cap.set(cv.CAP_PROP_FRAME_HEIGHT, _frameheight)
-            self.cap.set(cv.CAP_PROP_FPS, 30)
+            self.stream = StreamThread(src=0).start()
 
     def load_config(self):
         self.Notifier.newMessage("loading config.","Info")
@@ -141,12 +159,12 @@ class ObjectTracking:
         return self.trackers
 
     def loop(self):
-        counter = 0
-        while self.cap.isOpened():
+
+        while True:
             
-            counter += 1
-            ret, frame1 = self.cap.read()
-            if ret:
+
+            frame1 = self.stream.read()
+            if frame1 is not None:
                 now = time.time()
                 preview = frame1
                 self.Notifier.update(preview)
@@ -276,7 +294,7 @@ class ObjectTracking:
                 continue
             elif k != -1:
                 print(k)
-        self.cap.release()
+        self.stream.stop()
         cv.destroyAllWindows()
 
 class CVMessage:
@@ -389,6 +407,6 @@ class Tracker:
 
 if __name__ == "__main__":
 
-    Tracking = ObjectTracking(_useNotification=True,_mode="demo",_file="v4l2_example_crop.mp4",_useFullscreen=False)
+    Tracking = ObjectTracking(_useNotification=True,_mode="live",_file="v4l2_example_crop.mp4",_useFullscreen=False)
     Tracking.loop()
 

@@ -18,11 +18,12 @@ if platform.system() == "Linux" and platform.machine() == "armv7l":
 
 measurementInterval = 1
 error = False
-kernel_d = np.ones((7,21),np.uint8)
-kernel_e = np.ones((15,7),np.uint8)
+kernel_d = np.ones((7, 21), np.uint8)
+kernel_e = np.ones((15, 7), np.uint8)
 crop_size = 5
 step = 1
 offset = 15
+
 
 def get_center_point(contour):
     M = cv.moments(contour)
@@ -30,28 +31,30 @@ def get_center_point(contour):
     cY = int(M["m01"] / M["m00"])
     return [cX, cY+crop_size]
 
+
 class StreamThread:
 
-	def __init__(self, src=0):
-		self.stream = cv.VideoCapture(src)
-		(self.grabbed, self.frame) = self.stream.read()
-		self.stopped = False
+    def __init__(self, src=0):
+        self.stream = cv.VideoCapture(src)
+        (self.grabbed, self.frame) = self.stream.read()
+        self.stopped = False
 
-	def start(self):
-		Thread(target=self.update, args=()).start()
-		return self
+    def start(self):
+        Thread(target=self.update, args=()).start()
+        return self
 
-	def update(self):
-		while True:
-			if self.stopped:
-				return
-			(self.grabbed, self.frame) = self.stream.read()
+    def update(self):
+        while True:
+            if self.stopped:
+                return
+            (self.grabbed, self.frame) = self.stream.read()
 
-	def read(self):
-		return self.frame
+    def read(self):
+        return self.frame
 
-	def stop(self):
-		self.stopped = True
+    def stop(self):
+        self.stopped = True
+
 
 class ObjectTracking:
     useFullscreen = None
@@ -70,34 +73,36 @@ class ObjectTracking:
     roi_height = 100
     roi_width = 800
 
-    def __init__(self, _useNotification=False,_mode="demo",_file="",_framewidth=640,_frameheight=480,_useFullscreen=False):
+    def __init__(self, _useNotification=False, _mode="demo", _file="", _framewidth=640, _frameheight=480, _useFullscreen=False):
         if _useNotification:
             self.Notifier = CVNotifier()
-            self.Notifier.newMessage("using notification system","Info")
-            self.Notifier.newMessage("WASD to move the ROI","Instruction")
-            self.Notifier.newMessage("+ and - to change ROI height","Instruction")
-            self.Notifier.newMessage(", and . to change ROI width","Instruction")
-            self.Notifier.newMessage("X to save configuration","Instruction")
-            self.Notifier.newMessage(platform.system() + " " + platform.machine(),"Warning")
+            self.Notifier.newMessage("using notification system", "Info")
+            self.Notifier.newMessage("WASD to move the ROI", "Instruction")
+            self.Notifier.newMessage(
+                "+ and - to change ROI height", "Instruction")
+            self.Notifier.newMessage(
+                ", and . to change ROI width", "Instruction")
+            self.Notifier.newMessage("X to save configuration", "Instruction")
+            self.Notifier.newMessage(
+                platform.system() + " " + platform.machine(), "Warning")
 
         self.useFullscreen = _useFullscreen
-        self.framewidth=_framewidth
-        self.frameheight=_frameheight
+        self.framewidth = _framewidth
+        self.frameheight = _frameheight
         self.file = _file
         self.mode = _mode
         self.load_config()
         self.lastTime = time.time()
         self.objectCount = 0
 
-
         if self.mode == "demo":
             self.cap = cv.VideoCapture(_file)
             self.cap.set(cv.CAP_PROP_POS_FRAMES, 1400)
         else:
-            self.stream = StreamThread(src=0).start()
+            self.stream = StreamThread(src=1).start()
 
     def load_config(self):
-        self.Notifier.newMessage("loading config.","Info")
+        self.Notifier.newMessage("loading config.", "Info")
         f = open('config.json')
         data = json.load(f)
         positions = data['positions']
@@ -106,7 +111,7 @@ class ObjectTracking:
         self.roi_height = positions["roi_height"]
         self.roi_width = positions["roi_width"]
         f.close()
-        self.Notifier.newMessage("success.","Info")
+        self.Notifier.newMessage("success.", "Info")
 
     def save_config(self):
 
@@ -119,27 +124,27 @@ class ObjectTracking:
         with open("config.json", "w") as jsonFile:
             json.dump(data, jsonFile, indent=4)
         string = f"config saved:"
-        self.Notifier.newMessage(string,"Config")
+        self.Notifier.newMessage(string, "Config")
         string = f"roi_pos_x: {self.roi_pos_x}"
-        self.Notifier.newMessage(string,"Config")
+        self.Notifier.newMessage(string, "Config")
         string = f"roi_pos_y: {self.roi_pos_y}"
-        self.Notifier.newMessage(string,"Config")
+        self.Notifier.newMessage(string, "Config")
         string = f"roi_height: {self.roi_height}"
-        self.Notifier.newMessage(string,"Config")
+        self.Notifier.newMessage(string, "Config")
         string = f"roi_width: {self.roi_width}"
-        self.Notifier.newMessage(string,"Config")
+        self.Notifier.newMessage(string, "Config")
 
     def update(self, midpoints):
 
         if len(midpoints) == 1 and len(self.trackers) == 1:
             point = midpoints[0]
-            self.trackers[0].update(point[0],point[1])
-            
+            self.trackers[0].update(point[0], point[1])
+
         if len(midpoints) == 2 and len(self.trackers) == 2:
             left_side = min(midpoints, key=itemgetter(0))
             right_side = max(midpoints, key=itemgetter(0))
-            self.trackers[0].update(left_side[0],left_side[1])
-            self.trackers[1].update(right_side[0],right_side[1])
+            self.trackers[0].update(left_side[0], left_side[1])
+            self.trackers[1].update(right_side[0], right_side[1])
 
         if len(midpoints) > len(self.trackers):
             self.attachTracker(min(midpoints, key=itemgetter(0)))
@@ -148,8 +153,9 @@ class ObjectTracking:
             self.detatchTracker()
 
     def attachTracker(self, newPoint):
-        self.objectCount +=1
-        self.trackers.append(Tracker(newPoint[0],newPoint[1],self.objectCount))
+        self.objectCount += 1
+        self.trackers.append(
+            Tracker(newPoint[0], newPoint[1], self.objectCount))
         print(f"objectcounter: {self.objectCount}")
 
     def detatchTracker(self):
@@ -159,30 +165,51 @@ class ObjectTracking:
         return self.trackers
 
     def loop(self):
-
         while True:
-            
 
             frame1 = self.stream.read()
             if frame1 is not None:
                 now = time.time()
                 preview = frame1
                 self.Notifier.update(preview)
-                preview = cv.rectangle(preview,(self.roi_pos_x-2,self.roi_pos_y-2),(self.roi_pos_x+self.roi_width+2,self.roi_pos_y+self.roi_height+2),(0,0,255),1)
-                frame1 = frame1[self.roi_pos_y:self.roi_pos_y+self.roi_height, self.roi_pos_x:self.roi_pos_x+self.roi_width]
+                preview = cv.rectangle(preview, (self.roi_pos_x-2, self.roi_pos_y-2),
+                                       (self.roi_pos_x+self.roi_width+2, self.roi_pos_y+self.roi_height+2), (0, 0, 255), 1)
+                frame1 = frame1[self.roi_pos_y:self.roi_pos_y+self.roi_height,
+                                self.roi_pos_x:self.roi_pos_x+self.roi_width]
                 gray = cv.cvtColor(frame1, cv.COLOR_BGR2GRAY)
-                blur = cv.GaussianBlur(gray, (15, 15), 0)
+                blur = cv.GaussianBlur(gray, (17, 17), 0)
 
-                thresh = cv.adaptiveThreshold(blur,255,cv.ADAPTIVE_THRESH_MEAN_C,cv.THRESH_BINARY,101,20)
-                dilated = cv.dilate(thresh, kernel_d, iterations = 1)
-                eroded = cv.erode(dilated, kernel_e, iterations = 1)
+                resized = cv.resize(
+                    blur, (blur.shape[1], 1), interpolation=cv.INTER_AREA)
+
+                canvas = np.zeros((255, blur.shape[1], 3), np.uint8)
+
+                for index in range(resized[0].size):
+                    brightnessValue = resized[0][index]
+                    canvas[255-brightnessValue][index] = (255, 255, 255)
+
+                for index in range(resized[0].size):
+                    brightnessValue = resized[0][index]
+                    if index < resized[0].size-5:
+                        dif = resized[0][index+3]-resized[0][index]
+                        # print(dif)
+                        try:
+                            canvas[127-dif][index] = (255, 255, 0)
+                        except IndexError:
+                            pass
+
+                thresh = cv.adaptiveThreshold(
+                    blur, 255, cv.ADAPTIVE_THRESH_MEAN_C, cv.THRESH_BINARY, 101, 20)
+                dilated = cv.dilate(thresh, kernel_d, iterations=1)
+                eroded = cv.erode(dilated, kernel_e, iterations=1)
                 crop = eroded[crop_size:self.roi_height-crop_size, 0:1000]
-                
-                contours, _ = cv.findContours(crop, cv.RETR_TREE, cv.CHAIN_APPROX_SIMPLE)
+
+                contours, _ = cv.findContours(
+                    crop, cv.RETR_TREE, cv.CHAIN_APPROX_SIMPLE)
                 detected_contours = []
-                
+
                 for contour in contours:
-                    x,y,w,h = cv.boundingRect(contour)
+                    x, y, w, h = cv.boundingRect(contour)
                     aspect_ratio = float(w)/h
                     if cv.contourArea(contour) > 200 and cv.contourArea(contour) < 2000 and aspect_ratio < 8 and aspect_ratio > 4:
                         detected_contours.append(contour)
@@ -196,19 +223,24 @@ class ObjectTracking:
                     print("zeroDivision")
                 if len(midpoints) == 1:
                     point = midpoints[0]
-                    
-                    cv.putText(preview,"ID:"+str(self.objectCount),(point[0]+self.roi_pos_x-20, point[1]+self.roi_pos_y-40),cv.FONT_HERSHEY_PLAIN,2,(0,0,0),3,cv.LINE_AA)
-                    cv.putText(preview,"ID:"+str(self.objectCount),(point[0]+self.roi_pos_x-20, point[1]+self.roi_pos_y-40),cv.FONT_HERSHEY_PLAIN,2,(255,255,255),2,cv.LINE_AA)
+
+                    cv.putText(preview, "ID:"+str(self.objectCount),
+                               (point[0]+self.roi_pos_x-20, point[1]+self.roi_pos_y-40), cv.FONT_HERSHEY_PLAIN, 2, (0, 0, 0), 3, cv.LINE_AA)
+                    cv.putText(preview, "ID:"+str(self.objectCount),
+                               (point[0]+self.roi_pos_x-20, point[1]+self.roi_pos_y-40), cv.FONT_HERSHEY_PLAIN, 2, (255, 255, 255), 2, cv.LINE_AA)
                 if len(midpoints) == 2:
                     left_side = min(midpoints, key=itemgetter(0))
                     right_side = max(midpoints, key=itemgetter(0))
-                    cv.putText(preview,"ID:"+str(self.objectCount-1),(left_side[0]+self.roi_pos_x-20, left_side[1]+self.roi_pos_y-40),cv.FONT_HERSHEY_PLAIN,2,(0,0,0),3,cv.LINE_AA)
-                    cv.putText(preview,"ID:"+str(self.objectCount),(right_side[0]+self.roi_pos_x-20, right_side[1]+self.roi_pos_y-40),cv.FONT_HERSHEY_PLAIN,2,(0,0,0),3,cv.LINE_AA)
-                    
-                    cv.putText(preview,"ID:"+str(self.objectCount-1),(left_side[0]+self.roi_pos_x-20, left_side[1]+self.roi_pos_y-40),cv.FONT_HERSHEY_PLAIN,2,(255,255,255),2,cv.LINE_AA)
-                    cv.putText(preview,"ID:"+str(self.objectCount),(right_side[0]+self.roi_pos_x-20, right_side[1]+self.roi_pos_y-40),cv.FONT_HERSHEY_PLAIN,2,(255,255,255),2,cv.LINE_AA)
-                    
-                
+                    cv.putText(preview, "ID:"+str(self.objectCount-1),
+                               (left_side[0]+self.roi_pos_x-20, left_side[1]+self.roi_pos_y-40), cv.FONT_HERSHEY_PLAIN, 2, (0, 0, 0), 3, cv.LINE_AA)
+                    cv.putText(preview, "ID:"+str(self.objectCount),
+                               (right_side[0]+self.roi_pos_x-20, right_side[1]+self.roi_pos_y-40), cv.FONT_HERSHEY_PLAIN, 2, (0, 0, 0), 3, cv.LINE_AA)
+
+                    cv.putText(preview, "ID:"+str(self.objectCount-1),
+                               (left_side[0]+self.roi_pos_x-20, left_side[1]+self.roi_pos_y-40), cv.FONT_HERSHEY_PLAIN, 2, (255, 255, 255), 2, cv.LINE_AA)
+                    cv.putText(preview, "ID:"+str(self.objectCount),
+                               (right_side[0]+self.roi_pos_x-20, right_side[1]+self.roi_pos_y-40), cv.FONT_HERSHEY_PLAIN, 2, (255, 255, 255), 2, cv.LINE_AA)
+
                 if now - self.lastTime > measurementInterval:
                     self.update(midpoints)
                     self.lastTime = now
@@ -217,22 +249,27 @@ class ObjectTracking:
                 activeTrackers = self.getTrackers()
                 if len(activeTrackers) > 0:
                     for tracker in activeTrackers:
-                        cv.drawMarker(frame1, (tracker.currentPos[0],tracker.currentPos[1]),(0, 0, 0),cv.MARKER_CROSS,10, thickness=2)
-                        cv.drawMarker(frame1, (tracker.currentPos[0],tracker.currentPos[1]),(255, 255, 255),cv.MARKER_CROSS,10)
+                        cv.drawMarker(frame1, (tracker.currentPos[0], tracker.currentPos[1]), (
+                            0, 0, 0), cv.MARKER_CROSS, 10, thickness=2)
+                        cv.drawMarker(
+                            frame1, (tracker.currentPos[0], tracker.currentPos[1]), (255, 255, 255), cv.MARKER_CROSS, 10)
 
                 for contour in detected_contours:
                     try:
                         (x, y, w, h) = cv.boundingRect(contour)
-                        #cv.rectangle(frame1, (x, y), (x+w, y+h+offset), (0, 255, 0), 2)
-                        cv.drawMarker(frame1, get_center_point(contour),(255, 0, 255),cv.MARKER_DIAMOND,20, thickness=1)
+                        # cv.rectangle(frame1, (x, y), (x+w, y+h+offset), (0, 255, 0), 2)
+                        cv.drawMarker(frame1, get_center_point(
+                            contour), (255, 0, 255), cv.MARKER_DIAMOND, 20, thickness=1)
                     except ZeroDivisionError:
                         print("zeroDivision")
-                if platform.system() == "Linux" and platform.machine() == "armv7l":        
-                    cv.putText(preview,"CPU:"+str(int(cpu.temperature))+"Celsius",(1000,50),cv.FONT_HERSHEY_PLAIN,2,(0,0,255),2,cv.LINE_AA)
-                #cv.putText(frame1,str(len(self.trackers)),(10,15),cv.FONT_HERSHEY_COMPLEX_SMALL,1,(0,0,255),1,cv.LINE_AA)
+                if platform.system() == "Linux" and platform.machine() == "armv7l":
+                    cv.putText(preview, "CPU:"+str(int(cpu.temperature))+"Celsius",
+                               (1000, 50), cv.FONT_HERSHEY_PLAIN, 2, (0, 0, 255), 2, cv.LINE_AA)
+                # cv.putText(frame1,str(len(self.trackers)),(10,15),cv.FONT_HERSHEY_COMPLEX_SMALL,1,(0,0,255),1,cv.LINE_AA)
                 if self.useFullscreen == True:
                     cv.namedWindow("preview", cv.WINDOW_NORMAL)
-                    cv.setWindowProperty("preview", cv.WND_PROP_FULLSCREEN, cv.WINDOW_FULLSCREEN)
+                    cv.setWindowProperty(
+                        "preview", cv.WND_PROP_FULLSCREEN, cv.WINDOW_FULLSCREEN)
                 cv.imshow("blur", blur)
                 cv.imshow("preview", preview)
                 cv.imshow("Threshold", thresh)
@@ -240,56 +277,61 @@ class ObjectTracking:
                 cv.imshow("Frame", frame1)
                 cv.imshow("dilated", dilated)
                 cv.imshow("eroded", eroded)
-                
+                cv.imshow("resized", resized)
+                cv.imshow("canvas", canvas)
 
             else:
                 print('no video')
                 self.cap.set(cv.CAP_PROP_POS_FRAMES, 1400)
                 continue
             k = cv.waitKey(50)
-            if k==27:    # Esc key to stop
+            if k == 27:    # Esc key to stop
                 break
-            elif k==119:  # up
+            elif k == 119:  # up
                 if self.roi_pos_y > step:
                     self.roi_pos_y = self.roi_pos_y - step
-                    self.Notifier.newMessage(f"Y:{self.roi_pos_y}","Warning")
+                    self.Notifier.newMessage(f"Y:{self.roi_pos_y}", "Warning")
                 continue
-            elif k==115:  #down
+            elif k == 115:  # down
                 if self.roi_pos_y+self.roi_height < self.frameheight-step:
                     self.roi_pos_y = self.roi_pos_y + step
-                    self.Notifier.newMessage(f"Y:{self.roi_pos_y}","Warning")
+                    self.Notifier.newMessage(f"Y:{self.roi_pos_y}", "Warning")
                 continue
-            elif k==97:  # left
+            elif k == 97:  # left
                 if self.roi_pos_x > step:
                     self.roi_pos_x = self.roi_pos_x - step
-                    self.Notifier.newMessage(f"X:{self.roi_pos_x}","Warning")
+                    self.Notifier.newMessage(f"X:{self.roi_pos_x}", "Warning")
                 continue
-            elif k==100:  # right
+            elif k == 100:  # right
                 if self.roi_pos_x+self.roi_width < self.framewidth-step:
                     self.roi_pos_x = self.roi_pos_x + step
-                    self.Notifier.newMessage(f"X:{self.roi_pos_x}","Warning")
+                    self.Notifier.newMessage(f"X:{self.roi_pos_x}", "Warning")
                 continue
-            elif k==45:  # roi_height
+            elif k == 45:  # roi_height
                 if self.roi_height > 2*crop_size+1:
                     self.roi_height -= 1
-                    self.Notifier.newMessage(f"HEIGHT:{self.roi_height}","Warning")
+                    self.Notifier.newMessage(
+                        f"HEIGHT:{self.roi_height}", "Warning")
                 continue
-            elif k==43:  # roi_height
+            elif k == 43:  # roi_height
                 if self.roi_height < self.frameheight:
                     self.roi_height += 1
-                    self.Notifier.newMessage(f"HEIGHT:{self.roi_height}","Warning")
+                    self.Notifier.newMessage(
+                        f"HEIGHT:{self.roi_height}", "Warning")
                 continue
-            elif k==46:  # roi_width
+            elif k == 46:  # roi_width
                 if self.roi_width > 100:
-                    self.roi_width -=1
-                    self.Notifier.newMessage(f"WIDTH:{self.roi_width}","Warning")
+                    self.roi_width -= 1
+                    self.Notifier.newMessage(
+                        f"WIDTH:{self.roi_width}", "Warning")
                 continue
-            elif k==44:  #  roi_width
+            elif k == 44:  # roi_width
                 if self.roi_width < self.framewidth:
-                    self.roi_width +=1
-                    self.Notifier.newMessage(f"WIDTH:{self.roi_width}","Warning")
+                    self.roi_width += 1
+                    self.Notifier.newMessage(
+                        f"WIDTH:{self.roi_width}", "Warning")
                 continue
-            elif k==120:  # save roi configuration to config.json
+            elif k == 120:  # save roi configuration to config.json
                 self.save_config()
                 continue
             elif k != -1:
@@ -297,16 +339,20 @@ class ObjectTracking:
         self.stream.stop()
         cv.destroyAllWindows()
 
+
 class CVMessage:
 
     messageType = None
     content = "test"
-    colors = {"Error": (0,0,255),"Warning": (0,255,255),"Info": (0,255,0),"Instruction": (255,0,255),"Config":(255,0,0)}
+    colors = {"Error": (0, 0, 255), "Warning": (0, 255, 255), "Info": (
+        0, 255, 0), "Instruction": (255, 0, 255), "Config": (255, 0, 0)}
     color = None
-    def __init__(self,_content,_type,):
+
+    def __init__(self, _content, _type,):
         self.content = _content
         self.messageType = _type
         self.color = self.colors[self.messageType]
+
 
 class CVNotifier:
 
@@ -320,21 +366,23 @@ class CVNotifier:
 
     def __init__(self):
         pass
-        #for i in range(self.maxMessages):
+        # for i in range(self.maxMessages):
         #    self.attachMessage(CVMessage(" ", "Info"))
-    def setPosition(self,x,y):
+
+    def setPosition(self, x, y):
         self.position_x = x
         self.position_y = y
 
-    def setTextSize(self,size):
+    def setTextSize(self, size):
         self.textSize = size
 
     def newMessage(self, string, type):
-        message = CVMessage(string,type)
+        message = CVMessage(string, type)
         self.attachMessage(message)
 
     def attachMessage(self, cvmessage):
         self.messageInstances.append(cvmessage)
+
     def detatchMessage(self):
         self.messageInstances.pop(0)
 
@@ -345,8 +393,10 @@ class CVNotifier:
 
         for message in self.messageInstances:
             if message != "None":
-                cv.putText(screen,message.content,(self.position_x, self.position_y+self.textSize*20*i),self.font,self.textSize,message.color,self.textSize,self.cvLine)
-                i+=1
+                cv.putText(screen, message.content, (self.position_x, self.position_y+self.textSize *
+                           20*i), self.font, self.textSize, message.color, self.textSize, self.cvLine)
+                i += 1
+
 
 class Tracker:
 
@@ -359,17 +409,17 @@ class Tracker:
     currentPos = None
     velocity = None
 
-    def __init__(self,x,y,id):
+    def __init__(self, x, y, id):
         self.id = id
-        self.currentPos = [x,y]
+        self.currentPos = [x, y]
         self.lastTime = time.time()
 
-    def update(self,x,y):
+    def update(self, x, y):
         global error
         if self.errorMode == False:
             now = time.time()
             self.lastPos = self.currentPos
-            self.currentPos = [x,y]
+            self.currentPos = [x, y]
             self.calcVelocity(now)
             self.lastTime = now
             error = False
@@ -377,27 +427,28 @@ class Tracker:
             if platform.system() == "Linux" and platform.machine() == "armv7l":
                 GPIO.output(17, True)
             string = f"ERROR FROM ID{self.id}"
-            Tracking.Notifier.newMessage(string,"Error")
-            
+            Tracking.Notifier.newMessage(string, "Error")
+
             error = True
 
     def calcVelocity(self, now):
-        distance = math.sqrt(((int(self.lastPos[0])-int(self.currentPos[0]))**2)+((int(self.lastPos[1])-int(self.currentPos[1]))**2) )
+        distance = math.sqrt(((int(self.lastPos[0])-int(self.currentPos[0]))**2)+(
+            (int(self.lastPos[1])-int(self.currentPos[1]))**2))
         timedelta = (now-self.lastTime)
         velocity = distance / timedelta
 
         if velocity is not None:
             string = f"ID{self.id}: {velocity:.1F}px/s"
-            Tracking.Notifier.newMessage(string,"Info")
-        
+            Tracking.Notifier.newMessage(string, "Info")
+
         self.velocity = velocity
 
         if velocity <= self.failureThreshold:
             self.failureValues.append(velocity)
-        
+
         if len(self.failureValues) > 3:
             self.errorMode = True
-        
+
         if velocity > self.failureThreshold and self.errorMode != True:
             self.failureValues = []
 
@@ -407,6 +458,6 @@ class Tracker:
 
 if __name__ == "__main__":
 
-    Tracking = ObjectTracking(_useNotification=True,_mode="live",_file="v4l2_example_crop.mp4",_useFullscreen=False)
+    Tracking = ObjectTracking(_useNotification=True, _mode="live",
+                              _file="v4l2_example_crop.mp4", _useFullscreen=False)
     Tracking.loop()
-

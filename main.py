@@ -56,6 +56,7 @@ class StreamThread:
 
 
 class ObjectTracking:
+    #out = cv.VideoWriter('output.mp4', -1, 20.0, (640,480))
     failureFrameSaved = False
     thresholdrate = 30
     useFullscreen = None
@@ -81,7 +82,6 @@ class ObjectTracking:
     def __init__(self, _useNotification=False,_useGraph=False, _mode="demo", _file="", _framewidth=640, _frameheight=480, _useFullscreen=False):
         if _useNotification:
             self.Notifier = CVNotifier()
-            self.Notifier.newMessage("using notification system", "Info")
             self.Notifier.newMessage("WASD to move the ROI", "Instruction")
             self.Notifier.newMessage("G to toggle graph", "Instruction")
             self.Notifier.newMessage("Q to toggle tracking", "Instruction")
@@ -170,7 +170,7 @@ class ObjectTracking:
         detectedValues = []
 
         found_clusters = []
-        for index in range(len(values)-4):
+        for index in range(len(values)-10):
             val = abs(values[index+4]-values[index])
             if val > self.thresholdrate:
                 detectedValues.append((index))
@@ -215,10 +215,9 @@ class ObjectTracking:
                 preview = cv.rectangle(preview, (self.roi_pos_x-2, self.roi_pos_y-2),(self.roi_pos_x+self.roi_width+2, self.roi_pos_y+self.roi_height+2), (0, 0, 255), 1)
                 frame1 = frame1[self.roi_pos_y:self.roi_pos_y+self.roi_height,self.roi_pos_x:self.roi_pos_x+self.roi_width]
                 gray = cv.cvtColor(frame1, cv.COLOR_BGR2GRAY)
-                blur = cv.medianBlur(gray,9)
+                blur = cv.medianBlur(gray,21)
 
-                resized = cv.resize(
-                    blur, (blur.shape[1], 1), interpolation=cv.INTER_AREA)
+                resized = cv.resize(blur, (blur.shape[1], 1), interpolation=cv.INTER_AREA)
                 values = resized[0].tolist()
 
                 if platform.system() == "Linux" and platform.machine() == "armv7l":
@@ -230,12 +229,19 @@ class ObjectTracking:
                 self.Notifier.update(preview)
 
                 if self.graph_enabled:
-                    self.Graph.update(preview,values,self.thresholdrate)
-                for clustermidpoint in self.clustermidpoints:
+                    self.Graph.update(preview,values,self.thresholdrate,blur)
+                for index,clustermidpoint in enumerate(self.clustermidpoints):
+                    try:
+                        cv.putText(preview,str(self.trackers[index].id),(self.roi_pos_x+clustermidpoint-5,self.roi_pos_y-10), cv.FONT_HERSHEY_PLAIN, 1, (0,0,0), 3, cv.LINE_AA)
+                        cv.putText(preview,str(self.trackers[index].id),(self.roi_pos_x+clustermidpoint-5,self.roi_pos_y-10), cv.FONT_HERSHEY_PLAIN, 1, (0,255,0), 1, cv.LINE_AA)
+                    except:
+                        print("empty")
+                    cv.drawMarker(preview,(self.roi_pos_x+clustermidpoint,self.roi_pos_y+self.roi_height//2),(0,0,0),cv.MARKER_CROSS, 15, 3,cv.LINE_AA)
                     cv.drawMarker(preview,(self.roi_pos_x+clustermidpoint,self.roi_pos_y+self.roi_height//2),(0,255,0),cv.MARKER_CROSS, 15, 1,cv.LINE_AA)
                 cv.imshow("preview", preview)
                 if self.failureFrameSaved == False and error == True:
                     cv.imwrite("failure.jpg", preview)
+                    self.failureFrameSaved = True
                 if self.tracking_enabled:
                     self.update(values)
                     if now - self.lastTime > measurementInterval:
@@ -244,7 +250,7 @@ class ObjectTracking:
                         
                         self.lastTime = now
                         self.elapsedseconds += measurementInterval
-                
+                #self.out.write(preview)
             else:
                 print('no video')
                 self.cap.set(cv.CAP_PROP_POS_FRAMES, 1400)
@@ -335,7 +341,7 @@ class CVNotifier:
     font = cv.FONT_HERSHEY_PLAIN
     position_x = 2
     position_y = 0
-    maxMessages = 20
+    maxMessages = 10
     messageInstances = []
     cvLine = cv.LINE_AA
 
@@ -368,8 +374,8 @@ class CVNotifier:
         #cv.rectangle(screen,(self.position_x,self.position_y),(255, 145),(0,0,0),-1)
         for message in self.messageInstances:
             if message != "None":
-                cv.putText(screen, message.content, (self.position_x, self.position_y+self.textSize *
-                           15*i), self.font, self.textSize, message.color, self.textSize, self.cvLine)
+                cv.putText(screen, message.content, (self.position_x, self.position_y+self.textSize *15*i), self.font, self.textSize, (0,0,0), self.textSize+2, self.cvLine)
+                cv.putText(screen, message.content, (self.position_x, self.position_y+self.textSize *15*i), self.font, self.textSize, message.color, self.textSize, self.cvLine)
                 i += 1
 
 class CVGraph:
@@ -386,7 +392,7 @@ class CVGraph:
         self.position_x = x
         self.position_y = y
 
-    def update(self, screen, values,threshold):
+    def update(self, screen, values,threshold,blur):
         self.threshhold = threshold
         difarr = []
         difarrabs = []
@@ -394,15 +400,25 @@ class CVGraph:
             dif = values[index+4]-values[index]
             difarr.append(dif)
             difarrabs.append(abs(dif))
-
-                #for index in range(len(difarr)-1):
-                #    cv.line(preview,(index,127-difarr[index]),(index+1,127-difarr[index+1]),(255,255,0),1,cv.LINE_AA)
-        #cv.rectangle(screen,(self.position_x-2,self.position_y-140),(self.position_x+len(values),self.position_y+5),(0,0,0),-1,cv.LINE_AA)
         
+        
+        #cv.rectangle(screen,(self.position_x-2,self.position_y-140),(self.position_x+len(values),self.position_y+5),(0,0,0),-1,cv.LINE_AA)
+        test = cv.resize(blur, (blur.shape[1], 50), interpolation=cv.INTER_AREA)
+        test = cv.cvtColor(test,cv.COLOR_GRAY2BGR)
+        x_offset=self.position_x
+        y_offset=self.position_y-50
+        screen[y_offset:y_offset+test.shape[0], x_offset:x_offset+test.shape[1]] = test
+        
+        for index in range(len(values)-1):
+            pty1 = values[index]
+            pty2 = values[index+1]
+            cv.line(screen,(index,self.position_y-pty1),(index+1,self.position_y-pty2),(255,255,0),1,cv.LINE_AA)
         cv.line(screen,(self.position_x,self.position_y-self.threshhold),(self.position_x+len(values),self.position_y-self.threshhold),(0,255,0),1,cv.LINE_AA)
+        cv.putText(screen,"absolute",(self.position_x+len(values),self.position_y-50), cv.FONT_HERSHEY_PLAIN, 1, (255,255,0), 1, cv.LINE_AA)
         cv.putText(screen,"threshold",(self.position_x+len(values),self.position_y-self.threshhold+4), cv.FONT_HERSHEY_PLAIN, 1, (0,255,0), 1, cv.LINE_AA)
-        for index in range(len(difarrabs)-1):
-            cv.line(screen,(self.position_x+index,self.position_y-difarrabs[index]),(self.position_x+index+1,self.position_y-difarrabs[index+1]),(255,0,255),1,cv.LINE_AA)
+        cv.putText(screen,"rate",(self.position_x+len(values),self.position_y), cv.FONT_HERSHEY_PLAIN, 1, (255,0,255), 1, cv.LINE_AA)
+        for index in range(len(difarrabs)-5):
+            cv.line(screen,(2+self.position_x+index,self.position_y-difarrabs[index]),(2+self.position_x+index+1,self.position_y-difarrabs[index+1]),(255,0,255),1,cv.LINE_AA)
         
         cv.line(screen,(self.position_x,self.position_y-self.threshhold),(self.position_x+len(values),self.position_y-self.threshhold),(0,255,0),1,cv.LINE_AA)
 

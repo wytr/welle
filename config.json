@@ -1,9 +1,9 @@
 {
     "positions": {
-        "roi_pos_x": 101,
+        "roi_pos_x": 125,
         "roi_pos_y": 276,
         "roi_height": 6,
-        "roi_width": 378,
+        "roi_width": 315,
         "thresholdrate": 27
     }
 }

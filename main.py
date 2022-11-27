@@ -172,113 +172,49 @@ class ObjectTracking:
                 now = time.time()
                 preview = frame1
                 self.Notifier.update(preview)
-                preview = cv.rectangle(preview, (self.roi_pos_x-2, self.roi_pos_y-2),
-                                       (self.roi_pos_x+self.roi_width+2, self.roi_pos_y+self.roi_height+2), (0, 0, 255), 1)
-                frame1 = frame1[self.roi_pos_y:self.roi_pos_y+self.roi_height,
-                                self.roi_pos_x:self.roi_pos_x+self.roi_width]
+
+                preview = cv.rectangle(preview, (self.roi_pos_x-2, self.roi_pos_y-2),(self.roi_pos_x+self.roi_width+2, self.roi_pos_y+self.roi_height+2), (0, 0, 255), 1)
+                frame1 = frame1[self.roi_pos_y:self.roi_pos_y+self.roi_height,self.roi_pos_x:self.roi_pos_x+self.roi_width]
                 gray = cv.cvtColor(frame1, cv.COLOR_BGR2GRAY)
-                blur = cv.GaussianBlur(gray, (17, 17), 0)
+                blur = cv.medianBlur(gray,9)
 
                 resized = cv.resize(
                     blur, (blur.shape[1], 1), interpolation=cv.INTER_AREA)
-
+                values = resized[0].tolist()
+                
                 canvas = np.zeros((255, blur.shape[1], 3), np.uint8)
 
-                for index in range(resized[0].size):
-                    brightnessValue = resized[0][index]
-                    canvas[255-brightnessValue][index] = (255, 255, 255)
+                #for index in range(len(values)-1):
+                #    cv.line(preview,(index,255-values[index]),(index+1,255-values[index+1]),(255,255,255),1,cv.LINE_AA)
+                
+                difarr = []
+                difarrabs = []
+                for index in range(len(values)-3):
+                    dif = values[index+3]-values[index]
+                    difarr.append(dif)
+                    difarrabs.append(abs(dif))
 
-                for index in range(resized[0].size):
-                    brightnessValue = resized[0][index]
-                    if index < resized[0].size-5:
-                        dif = resized[0][index+3]-resized[0][index]
-                        # print(dif)
-                        try:
-                            canvas[127-dif][index] = (255, 255, 0)
-                        except IndexError:
-                            pass
+                #for index in range(len(difarr)-1):
+                #    cv.line(preview,(index,127-difarr[index]),(index+1,127-difarr[index+1]),(255,255,0),1,cv.LINE_AA)
 
-                thresh = cv.adaptiveThreshold(
-                    blur, 255, cv.ADAPTIVE_THRESH_MEAN_C, cv.THRESH_BINARY, 101, 20)
-                dilated = cv.dilate(thresh, kernel_d, iterations=1)
-                eroded = cv.erode(dilated, kernel_e, iterations=1)
-                crop = eroded[crop_size:self.roi_height-crop_size, 0:1000]
+                for index in range(len(difarrabs)-1):
+                    cv.line(preview,(index,127-difarrabs[index]),(index+1,127-difarrabs[index+1]),(0,0,255),1,cv.LINE_AA)
 
-                contours, _ = cv.findContours(
-                    crop, cv.RETR_TREE, cv.CHAIN_APPROX_SIMPLE)
-                detected_contours = []
+                canvas = cv.resize(canvas,(canvas.shape[1]*2,canvas.shape[0]*2), interpolation=cv.INTER_AREA)
 
-                for contour in contours:
-                    x, y, w, h = cv.boundingRect(contour)
-                    aspect_ratio = float(w)/h
-                    if cv.contourArea(contour) > 200 and cv.contourArea(contour) < 2000 and aspect_ratio < 8 and aspect_ratio > 4:
-                        detected_contours.append(contour)
 
-                midpoints = []
-
-                try:
-                    for contour in detected_contours:
-                        midpoints.append(get_center_point(contour))
-                except ZeroDivisionError:
-                    print("zeroDivision")
-                if len(midpoints) == 1:
-                    point = midpoints[0]
-
-                    cv.putText(preview, "ID:"+str(self.objectCount),
-                               (point[0]+self.roi_pos_x-20, point[1]+self.roi_pos_y-40), cv.FONT_HERSHEY_PLAIN, 2, (0, 0, 0), 3, cv.LINE_AA)
-                    cv.putText(preview, "ID:"+str(self.objectCount),
-                               (point[0]+self.roi_pos_x-20, point[1]+self.roi_pos_y-40), cv.FONT_HERSHEY_PLAIN, 2, (255, 255, 255), 2, cv.LINE_AA)
-                if len(midpoints) == 2:
-                    left_side = min(midpoints, key=itemgetter(0))
-                    right_side = max(midpoints, key=itemgetter(0))
-                    cv.putText(preview, "ID:"+str(self.objectCount-1),
-                               (left_side[0]+self.roi_pos_x-20, left_side[1]+self.roi_pos_y-40), cv.FONT_HERSHEY_PLAIN, 2, (0, 0, 0), 3, cv.LINE_AA)
-                    cv.putText(preview, "ID:"+str(self.objectCount),
-                               (right_side[0]+self.roi_pos_x-20, right_side[1]+self.roi_pos_y-40), cv.FONT_HERSHEY_PLAIN, 2, (0, 0, 0), 3, cv.LINE_AA)
-
-                    cv.putText(preview, "ID:"+str(self.objectCount-1),
-                               (left_side[0]+self.roi_pos_x-20, left_side[1]+self.roi_pos_y-40), cv.FONT_HERSHEY_PLAIN, 2, (255, 255, 255), 2, cv.LINE_AA)
-                    cv.putText(preview, "ID:"+str(self.objectCount),
-                               (right_side[0]+self.roi_pos_x-20, right_side[1]+self.roi_pos_y-40), cv.FONT_HERSHEY_PLAIN, 2, (255, 255, 255), 2, cv.LINE_AA)
-
-                if now - self.lastTime > measurementInterval:
-                    self.update(midpoints)
-                    self.lastTime = now
-                    self.elapsedseconds += measurementInterval
-
-                activeTrackers = self.getTrackers()
-                if len(activeTrackers) > 0:
-                    for tracker in activeTrackers:
-                        cv.drawMarker(frame1, (tracker.currentPos[0], tracker.currentPos[1]), (
-                            0, 0, 0), cv.MARKER_CROSS, 10, thickness=2)
-                        cv.drawMarker(
-                            frame1, (tracker.currentPos[0], tracker.currentPos[1]), (255, 255, 255), cv.MARKER_CROSS, 10)
-
-                for contour in detected_contours:
-                    try:
-                        (x, y, w, h) = cv.boundingRect(contour)
-                        # cv.rectangle(frame1, (x, y), (x+w, y+h+offset), (0, 255, 0), 2)
-                        cv.drawMarker(frame1, get_center_point(
-                            contour), (255, 0, 255), cv.MARKER_DIAMOND, 20, thickness=1)
-                    except ZeroDivisionError:
-                        print("zeroDivision")
                 if platform.system() == "Linux" and platform.machine() == "armv7l":
-                    cv.putText(preview, "CPU:"+str(int(cpu.temperature))+"Celsius",
-                               (1000, 50), cv.FONT_HERSHEY_PLAIN, 2, (0, 0, 255), 2, cv.LINE_AA)
-                # cv.putText(frame1,str(len(self.trackers)),(10,15),cv.FONT_HERSHEY_COMPLEX_SMALL,1,(0,0,255),1,cv.LINE_AA)
+                    cv.putText(preview, "CPU:"+str(int(cpu.temperature))+"Celsius",(1000, 50), cv.FONT_HERSHEY_PLAIN, 2, (0, 0, 255), 2, cv.LINE_AA)
                 if self.useFullscreen == True:
                     cv.namedWindow("preview", cv.WINDOW_NORMAL)
-                    cv.setWindowProperty(
-                        "preview", cv.WND_PROP_FULLSCREEN, cv.WINDOW_FULLSCREEN)
+                    cv.setWindowProperty("preview", cv.WND_PROP_FULLSCREEN, cv.WINDOW_FULLSCREEN)
+
                 cv.imshow("blur", blur)
                 cv.imshow("preview", preview)
-                cv.imshow("Threshold", thresh)
-                cv.imshow("crop", crop)
                 cv.imshow("Frame", frame1)
-                cv.imshow("dilated", dilated)
-                cv.imshow("eroded", eroded)
                 cv.imshow("resized", resized)
                 cv.imshow("canvas", canvas)
+
 
             else:
                 print('no video')
@@ -308,7 +244,7 @@ class ObjectTracking:
                     self.Notifier.newMessage(f"X:{self.roi_pos_x}", "Warning")
                 continue
             elif k == 45:  # roi_height
-                if self.roi_height > 2*crop_size+1:
+                if self.roi_height > crop_size+1:
                     self.roi_height -= 1
                     self.Notifier.newMessage(
                         f"HEIGHT:{self.roi_height}", "Warning")
@@ -397,7 +333,25 @@ class CVNotifier:
                            20*i), self.font, self.textSize, message.color, self.textSize, self.cvLine)
                 i += 1
 
+class CVGraph:
 
+    position_x = 2
+    position_y = 0
+    cvLine = cv.LINE_AA
+
+    def __init__(self):
+            pass
+            # for i in range(self.maxMessages):
+            #    self.attachMessage(CVMessage(" ", "Info"))
+
+    def setPosition(self, x, y):
+        self.position_x = x
+        self.position_y = y
+
+    def update(self, screen):
+        i = 1
+        if len(self.messageInstances) >= self.maxMessages:
+            self.detatchMessage()
 class Tracker:
 
     failureThreshold = 2.0

@@ -1,8 +1,8 @@
 {
     "positions": {
-        "roi_pos_x": 100,
-        "roi_pos_y": 274,
-        "roi_height": 11,
-        "roi_width": 390
+        "roi_pos_x": 111,
+        "roi_pos_y": 275,
+        "roi_height": 8,
+        "roi_width": 367
     }
 }
